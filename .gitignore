@@ -1,0 +1,47 @@
+# IDE files
+.classpath
+.project
+.settings/
+.idea/
+.vscode/
+*.iml
+out/
+
+# Build outputs
+build/
+*.class
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp files
+*~
+*.swp
+*.swo
+
+# Environment variables (IMPORTANT)
+.env
+
+# Node (if any)
+node_modules/
+
+# Tomcat runtime
+work/
+temp/
+
+# Database dumps (but NOT schema)
+*.sql.dump
+*.db
+
+# Package files (optional ignore)
+*.zip
+*.tar.gz
+*.rar
+
+# ❗ Keep required libraries
+!WebContent/WEB-INF/lib/
