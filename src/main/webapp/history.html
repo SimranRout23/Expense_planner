@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>History – 🌸 My Expense Planner</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo">🌸 <span>My Planner<span class="dot">.</span></span></div>
+  <div class="nav-links">
+    <a href="dashboard.html">Home</a>
+    <a href="budget.html">Budget</a>
+    <a href="expenses.html">Expenses</a>
+    <a href="compare.html">Compare</a>
+    <a href="history.html" class="active">History</a>
+  </div>
+  <div class="nav-user">
+    Hi, <strong id="nav-name">Friend</strong>! 👋
+    <button class="btn-logout" id="btn-logout">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="flex-between page-header">
+    <div>
+      <h1>🕓 Budget History</h1>
+      <p>All saved budget versions for any month. Download a full report anytime.</p>
+    </div>
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+      <!-- ── NEW: Export buttons ── -->
+      <button class="btn-export" onclick="doExportCSV()">⬇ Export CSV</button>
+      <button class="btn-export" style="border-color:var(--coral);color:var(--coral);background:var(--coral-soft)"
+              onclick="doExportPDF()">📄 Export PDF</button>
+      <div class="month-bar" style="margin:0">
+        <span>📅 Month</span>
+        <select id="h-month" class="form-control" style="width:auto" onchange="loadHistory()"></select>
+        <select id="h-year"  class="form-control" style="width:auto" onchange="loadHistory()"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NEW: Quick stats for selected month ──────────────── -->
+  <div id="hist-stats" style="display:none;margin-bottom:1.5rem">
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card">
+        <div class="label">Budget Versions</div>
+        <div class="value" id="hs-versions">0</div>
+        <div class="sub">Times revised 🔄</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="label">Latest Total Budget</div>
+        <div class="value" id="hs-total">₹0</div>
+        <div class="sub">Most recent plan</div>
+      </div>
+      <div class="stat-card teal">
+        <div class="label">Categories Planned</div>
+        <div class="value" id="hs-cats">0</div>
+        <div class="sub">Non-zero categories</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="history-empty" class="empty-state">
+    <div class="icon">🕓</div>
+    <p>No budget versions found for this month — try a different month!</p>
+  </div>
+
+  <!-- Version cards grid -->
+  <div id="history-grid" class="version-grid" style="display:none"></div>
+
+  <!-- ── NEW: Insights for selected month ─────────────────── -->
+  <div id="hist-insights-wrap" style="display:none;margin-top:1.5rem">
+    <div class="section-heading">🧠 Smart Insights for this Month</div>
+    <div class="insights-panel" id="hist-insights"></div>
+  </div>
+
+</div>
+
+<script src="js/script.js"></script>
+<script>
+const CATEGORIES = [
+  {icon:"🍔", name:"Food"},      {icon:"🚌", name:"Transport"},
+  {icon:"🏠", name:"Rent"},      {icon:"💊", name:"Health"},
+  {icon:"📚", name:"Education"}, {icon:"🎉", name:"Entertainment"},
+  {icon:"🛍️", name:"Shopping"},  {icon:"⚡", name:"Utilities"},
+  {icon:"✈️", name:"Travel"},    {icon:"📦", name:"Other"}
+];
+
+document.addEventListener("DOMContentLoaded", () => {
+  initNavbar();
+  populateMonthYear("h-month", "h-year");
+  loadHistory();
+});
+
+async function loadHistory() {
+  const month = document.getElementById("h-month").value;
+  const year  = document.getElementById("h-year").value;
+  if (!month || !year) return;
+
+  const data    = await apiGet(`/budget/history?month=${month}&year=${year}`);
+  const emptyEl = document.getElementById("history-empty");
+  const gridEl  = document.getElementById("history-grid");
+  const statsEl = document.getElementById("hist-stats");
+  const insWrap = document.getElementById("hist-insights-wrap");
+
+  if (!data.success || !data.versions.length) {
+    emptyEl.style.display = ""; gridEl.style.display = "none";
+    statsEl.style.display = "none"; insWrap.style.display = "none"; return;
+  }
+  emptyEl.style.display = "none"; gridEl.style.display = "";
+  statsEl.style.display = ""; insWrap.style.display = "";
+
+  // ── Quick stats
+  const versions = [...data.versions].reverse();
+  const latest   = versions[0];
+  const latTotal = Object.values(latest.items).reduce((a,b)=>a+b, 0);
+  const latCats  = Object.values(latest.items).filter(v=>v>0).length;
+  document.getElementById("hs-versions").textContent = versions.length;
+  document.getElementById("hs-total").textContent    = fmt(latTotal);
+  document.getElementById("hs-cats").textContent     = latCats;
+
+  // ── Version cards
+  gridEl.innerHTML = versions.map((v, i) => {
+    const isLatest = i === 0;
+    const total    = Object.values(v.items).reduce((a, b) => a + b, 0);
+    const rows     = CATEGORIES.filter(c => v.items[c.name] > 0)
+      .map(c => `<div class="vi">
+        <span class="cat">${c.icon} ${c.name}</span>
+        <span class="amt">${fmt(v.items[c.name])}</span>
+      </div>`).join("");
+
+    return `<div class="version-card fade-in ${isLatest ? "latest" : ""}">
+      <div class="version-badge">
+        Version ${v.version_no}
+        ${isLatest ? '<span class="badge badge-ok" style="margin-left:.4rem;font-size:.65rem">Latest ✨</span>' : ""}
+      </div>
+      <div class="version-items">${rows || "<div style='color:var(--text-dim);font-size:.85rem'>No items recorded.</div>"}</div>
+      <div class="version-total">
+        <span class="label">Total Budget</span>
+        <span class="val">${fmt(total)}</span>
+      </div>
+      <div class="version-date" style="margin-top:.75rem;font-size:.75rem;color:var(--text-dim)">
+        🕓 Saved on ${new Date(v.created_at).toLocaleString("en-IN", {dateStyle:"medium", timeStyle:"short"})}
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── Insights for the month
+  loadInsights(month, year, "hist-insights");
+}
+
+/* ── Export wrappers ─────────────────────────────────────── */
+function doExportCSV() {
+  exportCSV(document.getElementById("h-month").value, document.getElementById("h-year").value);
+}
+function doExportPDF() {
+  exportPDF(document.getElementById("h-month").value, document.getElementById("h-year").value);
+}
+</script>
+</body>
+</html>
