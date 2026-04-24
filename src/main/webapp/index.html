@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🌸 My Expense Planner</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card fade-in">
+    <div class="auth-logo">
+      <span class="icon">🌸</span>
+      <h1>My Expense Planner</h1>
+      <p>Keep your money happy, one rupee at a time ✨</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login"    onclick="switchTab('login')">Sign In</button>
+      <button class="auth-tab"        id="tab-register" onclick="switchTab('register')">Join Free</button>
+    </div>
+
+    <div id="auth-alert" class="alert"></div>
+
+    <!-- Login Form -->
+    <div id="form-login">
+      <div class="form-group">
+        <label>Your Email</label>
+        <input id="l-email" type="email" class="form-control" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="l-password" type="password" class="form-control" placeholder="••••••••"/>
+      </div>
+      <button class="btn btn-primary btn-block" style="font-size:1rem" onclick="doLogin()">Let's go! →</button>
+    </div>
+
+    <!-- Register Form -->
+    <div id="form-register" style="display:none">
+      <div class="form-group">
+        <label>What should we call you?</label>
+        <input id="r-name" type="text" class="form-control" placeholder="Your name"/>
+      </div>
+      <div class="form-group">
+        <label>Your Email</label>
+        <input id="r-email" type="email" class="form-control" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label>Pick a Password</label>
+        <input id="r-password" type="password" class="form-control" placeholder="At least 6 characters"/>
+      </div>
+      <button class="btn btn-primary btn-block" style="font-size:1rem" onclick="doRegister()">Create My Account 🎊</button>
+    </div>
+
+    <div class="auth-footer">Secure · Private · No ads 🌸</div>
+  </div>
+</div>
+
+<script src="js/script.js"></script>
+<script>
+  function switchTab(tab) {
+    document.getElementById("form-login").style.display    = tab === "login"    ? "" : "none";
+    document.getElementById("form-register").style.display = tab === "register" ? "" : "none";
+    document.getElementById("tab-login").classList.toggle("active",    tab === "login");
+    document.getElementById("tab-register").classList.toggle("active", tab === "register");
+    document.getElementById("auth-alert").className = "alert";
+  }
+
+  async function doLogin() {
+    const email    = document.getElementById("l-email").value.trim();
+    const password = document.getElementById("l-password").value;
+    if (!email || !password) { showAlert("auth-alert","Please fill all fields.","error"); return; }
+    const data = await apiPost("/login", { email, password });
+    if (data.success) {
+      location.href = "dashboard.html";
+    } else {
+      showAlert("auth-alert", data.message || "Login failed.", "error");
+    }
+  }
+
+  async function doRegister() {
+    const name     = document.getElementById("r-name").value.trim();
+    const email    = document.getElementById("r-email").value.trim();
+    const password = document.getElementById("r-password").value;
+    if (!name || !email || !password) { showAlert("auth-alert","Please fill all fields.","error"); return; }
+    const data = await apiPost("/register", { name, email, password });
+    if (data.success) {
+      location.href = "dashboard.html";
+    } else {
+      showAlert("auth-alert", data.message || "Registration failed.", "error");
+    }
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      const loginVisible = document.getElementById("form-login").style.display !== "none";
+      loginVisible ? doLogin() : doRegister();
+    }
+  });
+
+  apiGet("/me").then(d => { if (d?.logged_in) location.href = "dashboard.html"; }).catch(()=>{});
+</script>
+</body>
+</html>
