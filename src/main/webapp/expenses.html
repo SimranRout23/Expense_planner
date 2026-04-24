@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Expenses – 🌸 My Expense Planner</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo">🌸 <span>My Planner<span class="dot">.</span></span></div>
+  <div class="nav-links">
+    <a href="dashboard.html">Home</a>
+    <a href="budget.html">Budget</a>
+    <a href="expenses.html" class="active">Expenses</a>
+    <a href="compare.html">Compare</a>
+    <a href="history.html">History</a>
+  </div>
+  <div class="nav-user">
+    Hi, <strong id="nav-name">Friend</strong>! 👋
+    <button class="btn-logout" id="btn-logout">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="flex-between page-header">
+    <div>
+      <h1>💸 Track Your Spending</h1>
+      <p>Log daily expenses, or import your bank statement in one click.</p>
+    </div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <button class="btn-export" onclick="doExportCSV()">⬇ Export CSV</button>
+      <button class="btn-export" style="border-color:var(--coral);color:var(--coral);background:var(--coral-soft)"
+              onclick="doExportPDF()">📄 Export PDF</button>
+    </div>
+  </div>
+
+  <!-- ── Top row: Add Expense form + Expense list ────────── -->
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:1.5rem;align-items:start">
+
+    <!-- Add Expense Form -->
+    <div class="card fade-in" style="position:sticky;top:80px">
+      <h3 style="font-weight:800;margin-bottom:.4rem">Add an Expense</h3>
+      <p style="font-size:.82rem;color:var(--text-dim);margin-bottom:1.1rem;font-weight:500">What did you spend on today?</p>
+      <div id="exp-alert" class="alert"></div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="exp-cat" class="form-control">
+          <option value="">Pick a category...</option>
+          <option>Food</option><option>Transport</option><option>Rent</option>
+          <option>Health</option><option>Education</option><option>Entertainment</option>
+          <option>Shopping</option><option>Utilities</option><option>Travel</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input id="exp-amt" type="number" min="0.01" step="0.01" class="form-control" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input id="exp-date" type="date" class="form-control"/>
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input id="exp-note" type="text" class="form-control" placeholder="Brief description..."/>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="addExpense()">
+        ➕ Add Expense
+      </button>
+    </div>
+
+    <!-- Expense List -->
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:1rem">
+        <h3 style="font-weight:800">Expense List</h3>
+        <div class="month-bar" style="padding:.5rem 1rem;margin:0">
+          <span>📅</span>
+          <select id="e-month" class="form-control" style="width:auto" onchange="loadExpenses()"></select>
+          <select id="e-year"  class="form-control" style="width:auto" onchange="loadExpenses()"></select>
+        </div>
+      </div>
+
+      <div id="exp-empty" class="empty-state" style="display:none">
+        <div class="icon">🧾</div>
+        <p>No expenses recorded for this month.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table id="exp-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Note</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="exp-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="exp-total" style="margin-top:1rem;text-align:right;font-weight:900;
+           font-family:'Nunito',sans-serif;color:var(--coral);display:none">
+        Total: <span id="exp-total-val"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NEW: UPI / Bank Import Section ──────────────────── -->
+  <div class="import-section" style="margin-top:1.5rem">
+    <div class="section-heading">📲 Import UPI / Bank Transactions</div>
+    <div class="import-card">
+      <h3>📂 Upload Bank Statement CSV</h3>
+      <p>Export a CSV from your UPI app (PhonePe, GPay, Paytm) or bank (HDFC, SBI, ICICI, Axis).
+         Debit transactions are auto-detected and categorised using 40+ merchant keywords.</p>
+
+      <div id="imp-alert" class="alert"></div>
+
+      <!-- Drop zone -->
+      <div class="import-drop-zone" id="drop-zone"
+           onclick="document.getElementById('csv-file-input').click()"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)">
+        <div class="dz-icon">📁</div>
+        <p>Click to choose a CSV file &nbsp;·&nbsp; or drag &amp; drop here</p>
+        <small>Columns auto-detected: Date, Amount/Debit, Description/Narration</small>
+      </div>
+      <input type="file" id="csv-file-input" accept=".csv" style="display:none"
+             onchange="handleFileSelect(event)">
+
+      <!-- Column mapping hint -->
+      <div style="margin-top:.75rem;padding:.6rem .85rem;background:var(--gold-soft);
+                  border-radius:var(--radius-sm);border:1px solid #f5d992;font-size:.78rem;
+                  color:var(--text-mid)">
+        💡 <strong>Tip:</strong> Expected column names: <code>Date</code>, <code>Debit</code> or <code>Withdrawal</code> or <code>Amount</code>,
+        <code>Description</code> or <code>Narration</code> or <code>Remarks</code>.
+        Credits/refunds are automatically skipped.
+      </div>
+
+      <!-- Preview table (shown after file is parsed) -->
+      <div class="import-preview" id="import-preview-section">
+        <div style="height:.75rem"></div>
+        <div class="import-count" id="import-count"></div>
+        <div class="import-table-wrap">
+          <table class="import-table">
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Description</th><th>Auto Category</th></tr>
+            </thead>
+            <tbody id="import-preview-body"></tbody>
+          </table>
+        </div>
+        <p style="font-size:.75rem;color:var(--text-dim);margin-top:.4rem">
+          Showing first 20 rows. All valid debit rows will be imported.
+        </p>
+        <div style="margin-top:.85rem;display:flex;gap:.75rem;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="doImport()">
+            ⬆ Import All Transactions
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="cancelImport()">✕ Cancel</button>
+        </div>
+      </div>
+    </div>
+
+<!-- ── CSV Prompt Guide ── -->
+<details style="margin-top:.75rem">
+  <summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:var(--text-mid);
+                  padding:.4rem 0;outline:none">
+    📋 View CSV generation prompts
+  </summary>
+
+  <div style="margin-top:.6rem;background:var(--bg);border:1px solid var(--border);
+              border-radius:var(--radius-sm);padding:1rem;overflow-x:auto">
+
+    <!-- PhonePe / GPay Prompt -->
+    <p style="font-size:.8rem;margin-bottom:.4rem;color:var(--text-mid)">
+      <strong>PhonePe / GPay CSV Prompt:</strong>
+    </p>
+
+    <pre style="font-size:.75rem;line-height:1.6;color:var(--text);white-space:pre-wrap;margin:0">
+Generate a CSV file strictly in the following PhonePe / GPay transaction export format.
+Output ONLY CSV. Do not add explanations.
+
+Date,Description,Debit,Credit,Balance
+
+RULES:
+- Date format must be DD/MM/YYYY
+- Description must be uppercase
+- Debit = money spent, Credit = money received
+- Only one of Debit or Credit should have value per row
+- Amounts must be in decimal format (e.g., 250.00)
+- Balance must be a running balance with decimals
+- No negative values
+- No extra spaces
+- No extra columns
+- No text outside CSV
+    </pre>
+
+    <!-- Bank Prompt -->
+    <p style="font-size:.8rem;margin-top:.8rem;margin-bottom:.4rem;color:var(--text-mid)">
+      <strong>HDFC / SBI Bank CSV Prompt:</strong>
+    </p>
+
+    <pre style="font-size:.75rem;line-height:1.6;color:var(--text);white-space:pre-wrap;margin:0">
+Generate a CSV file strictly in the following HDFC / SBI bank statement format.
+Output ONLY CSV. Do not add explanations.
+
+Value Date,Narration,Withdrawal Amt,Deposit Amt,Closing Balance
+
+RULES:
+- Date format must be DD-MM-YYYY
+- Narration must follow bank-style text (UPI/, POS, NEFT, ATM, etc.)
+- Withdrawal Amt = money spent
+- Deposit Amt = money received
+- Only one of Withdrawal or Deposit should have value per row
+- Amounts must be in decimal format (e.g., 450.00)
+- Closing Balance must be maintained realistically
+- Some rows may have empty Closing Balance
+- No negative values
+- No extra spaces
+- No extra columns
+- No text outside CSV
+    </pre>
+
+  </div>
+</details>
+<script src="js/script.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  initNavbar();
+  document.getElementById("exp-date").value = new Date().toISOString().split("T")[0];
+  populateMonthYear("e-month", "e-year");
+  loadExpenses();
+});
+
+/* ── Manual add expense ──────────────────────────────────── */
+async function addExpense() {
+  const category = document.getElementById("exp-cat").value;
+  const amount   = parseFloat(document.getElementById("exp-amt").value);
+  const date     = document.getElementById("exp-date").value;
+  const note     = document.getElementById("exp-note").value.trim();
+  if (!category) { showAlert("exp-alert","Please choose a category.","error"); return; }
+  if (!amount || amount <= 0) { showAlert("exp-alert","Please enter a valid amount.","error"); return; }
+  if (!date)     { showAlert("exp-alert","Please pick a date.","error"); return; }
+
+  const data = await apiPost("/expense", { category, amount, date, note });
+  if (data.success) {
+    showAlert("exp-alert","Expense logged! Great job keeping track 👍","success");
+    document.getElementById("exp-cat").value  = "";
+    document.getElementById("exp-amt").value  = "";
+    document.getElementById("exp-note").value = "";
+    const d = new Date(date + "T00:00:00");
+    document.getElementById("e-month").value = d.getMonth() + 1;
+    document.getElementById("e-year").value  = d.getFullYear();
+    loadExpenses();
+  } else {
+    showAlert("exp-alert", data.message || "Failed to add expense.", "error");
+  }
+}
+
+/* ── Load expense list ───────────────────────────────────── */
+async function loadExpenses() {
+  const month = document.getElementById("e-month").value;
+  const year  = document.getElementById("e-year").value;
+  if (!month || !year) return;
+  const data    = await apiGet(`/expenses?month=${month}&year=${year}`);
+  const tbody   = document.getElementById("exp-tbody");
+  const emptyEl = document.getElementById("exp-empty");
+  const tableEl = document.getElementById("exp-table");
+  const totalEl = document.getElementById("exp-total");
+
+  if (!data.success || !data.expenses.length) {
+    tbody.innerHTML = ""; emptyEl.style.display = "";
+    tableEl.style.display = "none"; totalEl.style.display = "none"; return;
+  }
+  emptyEl.style.display = "none"; tableEl.style.display = ""; totalEl.style.display = "";
+  let total = 0;
+  tbody.innerHTML = data.expenses.map(e => {
+    total += e.amount;
+    const src    = e.source || "manual";
+    const srcBadge = `<span class="badge-source ${src}">${src === "import" ? "📲 Import" : "✏ Manual"}</span>`;
+    return `<tr>
+      <td style="color:var(--text-dim);font-family:'Fira Code',monospace;font-size:.82rem">${e.date}</td>
+      <td><span class="badge-cat">${e.category}</span></td>
+      <td style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--gold)">${fmt(e.amount)}</td>
+      <td style="color:var(--text-mid);font-weight:500;max-width:160px;overflow:hidden;
+                 text-overflow:ellipsis;white-space:nowrap">${e.note || "—"}</td>
+      <td>${srcBadge}</td>
+      <td><button class="btn btn-danger" onclick="deleteExpense(${e.expense_id})">✕</button></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("exp-total-val").textContent = fmt(total);
+}
+
+async function deleteExpense(id) {
+  if (!confirm("Delete this expense?")) return;
+  const data = await apiDelete(`/expense/${id}`);
+  if (data.success) loadExpenses();
+}
+
+/* ── Export ──────────────────────────────────────────────── */
+function doExportCSV() {
+  exportCSV(document.getElementById("e-month").value, document.getElementById("e-year").value);
+}
+function doExportPDF() {
+  exportPDF(document.getElementById("e-month").value, document.getElementById("e-year").value);
+}
+
+/* ── File import handlers ────────────────────────────────── */
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  parseImportFile(file, "import-preview-body", "import-preview-section", "import-count");
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById("drop-zone").classList.add("drag-over");
+}
+function handleDragLeave(e) {
+  document.getElementById("drop-zone").classList.remove("drag-over");
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById("drop-zone").classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith(".csv")) {
+    parseImportFile(file, "import-preview-body", "import-preview-section", "import-count");
+  } else {
+    showAlert("imp-alert", "Please drop a valid CSV file.", "error");
+  }
+}
+
+async function doImport() {
+  const fileInput = document.getElementById("csv-file-input");
+  const filename  = fileInput.files[0] ? fileInput.files[0].name : "upload.csv";
+  await submitImport(filename, "imp-alert");
+  loadExpenses();
+}
+function cancelImport() {
+  window._importRows = [];
+  document.getElementById("import-preview-section").classList.remove("visible");
+  document.getElementById("csv-file-input").value = "";
+}
+</script>
+</body>
+</html>
