@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard – 🌸 My Expense Planner</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo">🌸 <span>My Planner<span class="dot">.</span></span></div>
+  <div class="nav-links">
+    <a href="dashboard.html" class="active">Home</a>
+    <a href="budget.html">Budget</a>
+    <a href="expenses.html">Expenses</a>
+    <a href="compare.html">Compare</a>
+    <a href="history.html">History</a>
+  </div>
+  <div class="nav-user">
+    Hi, <strong id="nav-name">Friend</strong>! 👋
+    <button class="btn-logout" id="btn-logout">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Page Header -->
+  <div class="flex-between page-header">
+    <div>
+      <h1>👋 Welcome back!</h1>
+      <p>Here's how your finances are looking this month.</p>
+    </div>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+      <button class="btn-export" onclick="doExportCSV()">⬇ Export CSV</button>
+      <button class="btn-export" style="border-color:var(--coral);color:var(--coral);background:var(--coral-soft)" onclick="doExportPDF()">📄 Export PDF</button>
+      <a href="budget.html" class="btn btn-primary">+ Set a Budget</a>
+    </div>
+  </div>
+
+  <!-- Month Bar -->
+  <div class="month-bar">
+    <span>📅 Viewing month:</span>
+    <select id="d-month" class="form-control" style="width:auto" onchange="loadDashboard()"></select>
+    <select id="d-year"  class="form-control" style="width:auto" onchange="loadDashboard()"></select>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label">Total Budget</div>
+      <div class="value" id="stat-budget">₹0</div>
+      <div class="sub">What you planned 📋</div>
+    </div>
+    <div class="stat-card red">
+      <div class="label">Spent So Far</div>
+      <div class="value" id="stat-spent">₹0</div>
+      <div class="sub" id="stat-count">0 transactions 💸</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="label">Still Available</div>
+      <div class="value" id="stat-remaining">₹0</div>
+      <div class="sub" id="stat-remaining-label">Available to spend</div>
+    </div>
+    <div class="stat-card teal">
+      <div class="label">Budget Versions</div>
+      <div class="value" id="stat-versions">0</div>
+      <div class="sub">Revisions this month 🔄</div>
+    </div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="card mb-2">
+    <div class="flex-between" style="margin-bottom:1rem">
+      <h3 style="font-weight:800;font-size:1.1rem">How much of your budget is used?</h3>
+      <span id="prog-label" style="font-family:'Nunito',sans-serif;font-size:1.3rem;font-weight:900;color:var(--coral)">0%</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:.75rem;font-size:.85rem;color:var(--text-dim)">
+      <span id="prog-amounts"></span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- ── NEW: Charts Section ─────────────────────────────── -->
+  <div class="section-heading">📈 Spending Visualisation</div>
+  <div class="charts-grid mb-2">
+    <div class="chart-card">
+      <h3>Category Breakdown</h3>
+      <div class="chart-wrap">
+        <canvas id="pie-chart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Planned vs Actual</h3>
+      <div class="chart-wrap">
+        <canvas id="bar-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NEW: Smart Insights Panel ───────────────────────── -->
+  <div class="section-heading">🧠 Smart Insights</div>
+  <div class="insights-panel mb-2" id="insights-container">
+    <div class="insight-item info">
+      <span class="i-icon">💡</span>
+      <span class="i-text">Select a month above to see personalised spending insights.</span>
+    </div>
+  </div>
+
+  <!-- ── NEW: Yearly Prediction Panel ────────────────────── -->
+  <div class="section-heading">🔮 Prediction & Forecast</div>
+  <div class="prediction-panel mb-2" id="prediction-container">
+    <h3>Next Month Prediction</h3>
+    <div style="color:#7aafc4;font-size:.85rem">Loading forecast…</div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="section-heading">⚡ Quick Actions</div>
+  <div class="stats-grid">
+    <a href="budget.html" class="quick-action">
+      <span class="qa-icon">📋</span>
+      <div class="qa-label">Create / Update Budget</div>
+    </a>
+    <a href="expenses.html" class="quick-action">
+      <span class="qa-icon">💸</span>
+      <div class="qa-label">Log an Expense</div>
+    </a>
+    <a href="compare.html" class="quick-action">
+      <span class="qa-icon">📊</span>
+      <div class="qa-label">Planned vs Actual</div>
+    </a>
+    <a href="history.html" class="quick-action">
+      <span class="qa-icon">🕓</span>
+      <div class="qa-label">See Version History</div>
+    </a>
+  </div>
+
+</div>
+
+<script src="js/script.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    initNavbar();
+    populateMonthYear("d-month", "d-year");
+    loadDashboard();
+    loadPrediction("prediction-container");
+  });
+
+  async function loadDashboard() {
+    const month = document.getElementById("d-month").value;
+    const year  = document.getElementById("d-year").value;
+    if (!month || !year) return;
+
+    const data = await apiGet(`/dashboard?month=${month}&year=${year}`);
+    if (!data.success) return;
+
+    document.getElementById("stat-budget").textContent    = fmt(data.total_budget);
+    document.getElementById("stat-spent").textContent     = fmt(data.total_expenses);
+    document.getElementById("stat-remaining").textContent = fmt(Math.abs(data.remaining));
+    document.getElementById("stat-versions").textContent  = data.version_count;
+    document.getElementById("stat-count").textContent     = `${data.expense_count} transaction${data.expense_count !== 1 ? "s" : ""} 💸`;
+
+    const remLabel = document.getElementById("stat-remaining-label");
+    remLabel.textContent = data.remaining >= 0 ? "Available to spend" : "Over budget! ⚠";
+    remLabel.style.color = data.remaining >= 0 ? "" : "var(--red)";
+
+    const pct = data.total_budget > 0
+      ? Math.min((data.total_expenses / data.total_budget) * 100, 100) : 0;
+    const bar = document.getElementById("prog-bar");
+    bar.style.width = pct + "%";
+    bar.className   = "progress-bar" + (data.remaining < 0 ? " over" : "");
+    document.getElementById("prog-label").textContent   = `${pct.toFixed(1)}%`;
+    document.getElementById("prog-amounts").textContent = `${fmt(data.total_expenses)} spent of ${fmt(data.total_budget)}`;
+
+    // Load charts
+    loadCharts(month, year);
+
+    // Load insights
+    loadInsights(month, year, "insights-container");
+  }
+
+  async function loadCharts(month, year) {
+    // Pie chart: category breakdown from expenses
+    const expData = await apiGet(`/expenses?month=${month}&year=${year}`);
+    if (expData.success && expData.expenses.length > 0) {
+      const catMap = {};
+      expData.expenses.forEach(e => {
+        catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+      });
+      renderPieChart("pie-chart", Object.keys(catMap), Object.values(catMap));
+    }
+
+    // Bar chart: planned vs actual from compare endpoint
+    const cmpData = await apiGet(`/compare?month=${month}&year=${year}`);
+    if (cmpData.success && cmpData.comparison && cmpData.comparison.length > 0) {
+      const labels   = cmpData.comparison.map(r => r.category);
+      const planned  = cmpData.comparison.map(r => r.planned);
+      const actual   = cmpData.comparison.map(r => r.actual);
+      renderBarChart("bar-chart", labels, planned, actual);
+    }
+  }
+
+  function doExportCSV() {
+    const m = document.getElementById("d-month").value;
+    const y = document.getElementById("d-year").value;
+    exportCSV(m, y);
+  }
+  function doExportPDF() {
+    const m = document.getElementById("d-month").value;
+    const y = document.getElementById("d-year").value;
+    exportPDF(m, y);
+  }
+</script>
+</body>
+</html>
+<!-- updated -->
