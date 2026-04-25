@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Compare – 🌸 My Expense Planner</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo">🌸 <span>My Planner<span class="dot">.</span></span></div>
+  <div class="nav-links">
+    <a href="dashboard.html">Home</a>
+    <a href="budget.html">Budget</a>
+    <a href="expenses.html">Expenses</a>
+    <a href="compare.html" class="active">Compare</a>
+    <a href="history.html">History</a>
+  </div>
+  <div class="nav-user">
+    Hi, <strong id="nav-name">Friend</strong>! 👋
+    <button class="btn-logout" id="btn-logout">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="flex-between page-header">
+    <div>
+      <h1>📊 Budget vs Actual</h1>
+      <p>See where you stand against your plan, and track spending trends over time.</p>
+    </div>
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+      <!-- ── NEW: Export buttons ── -->
+      <button class="btn-export" onclick="doExportCSV()">⬇ Export CSV</button>
+      <button class="btn-export" style="border-color:var(--coral);color:var(--coral);background:var(--coral-soft)"
+              onclick="doExportPDF()">📄 Export PDF</button>
+      <div class="month-bar" style="margin:0">
+        <span>📅 Month</span>
+        <select id="c-month" class="form-control" style="width:auto" onchange="loadCompare()"></select>
+        <select id="c-year"  class="form-control" style="width:auto" onchange="loadCompare()"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="compare-summary" id="cmp-summary" style="display:none">
+    <div class="stat-card">
+      <div class="label">Total Planned</div>
+      <div class="value" id="c-planned">₹0</div>
+    </div>
+    <div class="stat-card red">
+      <div class="label">Total Actual</div>
+      <div class="value" id="c-actual">₹0</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="label">Difference</div>
+      <div class="value" id="c-diff">₹0</div>
+      <div class="sub" id="c-status"></div>
+    </div>
+  </div>
+
+  <!-- Budget vs Actual Table -->
+  <div class="card mb-2">
+    <div id="cmp-empty" class="empty-state">
+      <div class="icon">📊</div>
+      <p>No budget set for this month. <a href="budget.html" style="color:var(--coral);font-weight:700">Create a budget →</a></p>
+    </div>
+    <div class="table-wrap" id="cmp-table-wrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Planned</th>
+            <th>Actual</th>
+            <th>Difference</th>
+            <th>Status</th>
+            <th style="min-width:140px">Usage</th>
+          </tr>
+        </thead>
+        <tbody id="cmp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── NEW: Smart Insights for this month ─────────────── -->
+  <div class="section-heading">🧠 Smart Insights for this Month</div>
+  <div class="insights-panel mb-2" id="compare-insights">
+    <div class="insight-item info">
+      <span class="i-icon">💡</span>
+      <span class="i-text">Select a month to see insights.</span>
+    </div>
+  </div>
+
+  <!-- ── NEW: Multi-Month Trend Section ─────────────────── -->
+  <div class="section-heading">📈 Multi-Month Spending Trend</div>
+  <div class="card mb-2">
+    <div class="trend-controls">
+      <label>Show last:</label>
+      <select id="trend-months" onchange="loadTrend()">
+        <option value="3">3 months</option>
+        <option value="6" selected>6 months</option>
+        <option value="12">12 months</option>
+      </select>
+    </div>
+    <div id="trend-empty" style="display:none;text-align:center;padding:2rem;
+         color:var(--text-dim);font-size:.88rem">
+      📉 No spending data found for this period yet.
+    </div>
+    <div class="chart-wrap tall" id="trend-chart-wrap">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── NEW: Side-by-side multi-month bar comparison ───── -->
+  <div class="section-heading">📊 Month-over-Month Category Comparison</div>
+  <div class="card mb-2">
+    <div class="trend-controls" style="margin-bottom:1rem">
+      <label>Compare last:</label>
+      <select id="compare-months-count" onchange="loadMonthlyCompareChart()">
+        <option value="3" selected>3 months</option>
+        <option value="6">6 months</option>
+      </select>
+    </div>
+    <div id="mom-empty" style="display:none;text-align:center;padding:2rem;
+         color:var(--text-dim);font-size:.88rem">
+      📉 Not enough data yet. Log expenses for multiple months.
+    </div>
+    <div class="chart-wrap tall" id="mom-chart-wrap">
+      <canvas id="mom-chart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/script.js"></script>
+<script>
+let momChartInstance = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  initNavbar();
+  populateMonthYear("c-month", "c-year");
+  loadCompare();
+  loadTrend();
+  loadMonthlyCompareChart();
+});
+
+/* ── Budget vs Actual for selected month ─────────────────── */
+async function loadCompare() {
+  const month = document.getElementById("c-month").value;
+  const year  = document.getElementById("c-year").value;
+  if (!month || !year) return;
+  const data       = await apiGet(`/compare?month=${month}&year=${year}`);
+  const emptyEl    = document.getElementById("cmp-empty");
+  const tableWrap  = document.getElementById("cmp-table-wrap");
+  const summaryEl  = document.getElementById("cmp-summary");
+  const tbody      = document.getElementById("cmp-tbody");
+
+  if (!data.success || !data.comparison?.length) {
+    emptyEl.style.display = ""; tableWrap.style.display = "none"; summaryEl.style.display = "none";
+  } else {
+    emptyEl.style.display = "none"; tableWrap.style.display = ""; summaryEl.style.display = "";
+
+    const diff = data.total_diff;
+    document.getElementById("c-planned").textContent = fmt(data.total_planned);
+    document.getElementById("c-actual").textContent  = fmt(data.total_actual);
+    document.getElementById("c-diff").textContent    = fmt(Math.abs(diff));
+    document.getElementById("c-diff").style.color    = diff >= 0 ? "var(--mint)" : "var(--red)";
+    document.getElementById("c-status").textContent  = diff >= 0 ? "✓ You're within budget!" : "⚠ Budget exceeded";
+
+    tbody.innerHTML = data.comparison.map(r => {
+      const pct  = r.planned > 0 ? Math.min((r.actual / r.planned) * 100, 100) : (r.actual > 0 ? 100 : 0);
+      const over = r.status === "EXCEEDED";
+      return `<tr>
+        <td style="font-weight:700">${r.category}</td>
+        <td style="color:var(--mint);font-family:'Fira Code',monospace;font-weight:600">${fmt(r.planned)}</td>
+        <td style="color:var(--gold);font-family:'Fira Code',monospace;font-weight:600">${fmt(r.actual)}</td>
+        <td class="${over ? "diff-negative" : "diff-positive"}">${over ? "-" : "+"}${fmt(Math.abs(r.difference))}</td>
+        <td><span class="badge ${over ? "badge-exceeded" : "badge-ok"}">${over ? "⚠ Over" : "✓ Good"}</span></td>
+        <td>
+          <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:.2rem;font-weight:600">${Math.round(pct)}% used</div>
+          <div class="compare-bar"><div class="compare-fill ${over ? "over" : ""}" style="width:${pct}%"></div></div>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Load insights for this month
+  loadInsights(month, year, "compare-insights");
+}
+
+/* ── Monthly trend line chart ─────────────────────────────── */
+async function loadTrend() {
+  const months  = document.getElementById("trend-months").value;
+  const data    = await apiGet(`/trend?months=${months}`);
+  const empty   = document.getElementById("trend-empty");
+  const wrap    = document.getElementById("trend-chart-wrap");
+
+  if (!data.success || !data.trend || data.trend.length === 0) {
+    empty.style.display = ""; wrap.style.display = "none"; return;
+  }
+  empty.style.display = "none"; wrap.style.display = "";
+  renderTrendChart("trend-chart", data.trend.map(t => t.label), data.trend.map(t => t.total));
+}
+
+/* ── Month-over-month stacked/grouped bar chart ──────────── */
+async function loadMonthlyCompareChart() {
+  await loadScript(CHARTJS_URL);
+  const months  = document.getElementById("compare-months-count").value;
+  const data    = await apiGet(`/trend?months=${months}`);
+  const empty   = document.getElementById("mom-empty");
+  const wrap    = document.getElementById("mom-chart-wrap");
+  const ctx     = document.getElementById("mom-chart");
+
+  if (!data.success || !data.trend || data.trend.length < 2) {
+    empty.style.display = ""; wrap.style.display = "none"; return;
+  }
+  empty.style.display = "none"; wrap.style.display = "";
+
+  // Build category × month matrix
+  const allMonths = data.trend.map(t => t.label);
+  const catMap    = {};  // cat → [ total per month in order ]
+  const monthKeys = data.trend.map(t => `${t.year}-${String(t.month).padStart(2,"0")}`);
+
+  (data.by_category || []).forEach(row => {
+    const mk = `${row.year}-${String(row.month).padStart(2,"0")}`;
+    const mi = monthKeys.indexOf(mk);
+    if (mi < 0) return;
+    if (!catMap[row.category]) catMap[row.category] = new Array(allMonths.length).fill(0);
+    catMap[row.category][mi] = row.total;
+  });
+
+  const datasets = Object.entries(catMap).map(([cat, vals], i) => ({
+    label:           cat,
+    data:            vals,
+    backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + "CC",
+    borderColor:     CHART_COLORS[i % CHART_COLORS.length],
+    borderWidth:     1.5,
+    borderRadius:    5
+  }));
+
+  if (momChartInstance) momChartInstance.destroy();
+  momChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: { labels: allMonths, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: c => ` ${c.dataset.label}: ₹${Number(c.parsed.y).toLocaleString("en-IN",{minimumFractionDigits:2})}`
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          stacked: true,
+          grid: { color: "rgba(0,0,0,.05)" },
+          ticks: { font:{size:11}, callback: v => "₹"+Number(v).toLocaleString("en-IN") }
+        }
+      }
+    }
+  });
+}
+
+/* ── Export wrappers ─────────────────────────────────────── */
+function doExportCSV() {
+  exportCSV(document.getElementById("c-month").value, document.getElementById("c-year").value);
+}
+function doExportPDF() {
+  exportPDF(document.getElementById("c-month").value, document.getElementById("c-year").value);
+}
+</script>
+</body>
+</html>
